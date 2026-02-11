@@ -1,6 +1,3 @@
-// Free Fire UID Info API
-// Credit: @sakib01994
-
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=UTF-8");
 
@@ -10,56 +7,69 @@ export default async function handler(req, res) {
     return res.status(400).json({
       success: false,
       message: "Missing uid parameter",
-      example: "/api/ff?uid=123456789",
     });
   }
 
   try {
-    // Build payload
     const payload = {
       uid: uid,
       ts: Date.now(),
     };
 
-    // Base64 encode
-    const data = Buffer.from(JSON.stringify(payload)).toString("base64");
+    const encoded = Buffer
+      .from(JSON.stringify(payload))
+      .toString("base64");
 
-    const url = `https://1.indian-plays.site/getnickname.php?data=${encodeURIComponent(data)}`;
+    const apiUrl =
+      `https://1.indian-plays.site/getnickname.php?data=${encodeURIComponent(encoded)}`;
 
-    const response = await fetch(url, {
+    const response = await fetch(apiUrl, {
+      method: "GET",
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Linux; Android 14) Instagram 412.0.0.35.87 Android",
+          "Mozilla/5.0 (Linux; Android 14; SM-G990E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
+        "Accept": "application/json",
         "X-Requested-With": "com.instagram.android",
-      },
+        "Referer": "https://instagram.com/",
+        "Origin": "https://instagram.com"
+      }
     });
 
-    const js = await response.json();
+    const text = await response.text();
 
-    if (js.error) {
-      return res.status(404).json({
+    if (!text) {
+      return res.status(502).json({
         success: false,
-        message: "Invalid UID or not found",
+        message: "Upstream empty response"
       });
     }
 
-    // Clean nickname (remove hidden unicode)
-    const nickname = js.nickname
-      ? js.nickname.replace(/[\u3164\uf8ff]/g, "")
+    const data = JSON.parse(text);
+
+    if (data.error || !data.accountid) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid UID or blocked by upstream"
+      });
+    }
+
+    const nickname = data.nickname
+      ? data.nickname.replace(/[\u3164\uf8ff]/g, "")
       : "Unknown";
 
     return res.status(200).json({
       success: true,
       credit: "@sakib01994",
-      UID: js.accountid,
+      UID: data.accountid,
       Name: nickname,
-      Level: js.level,
-      Region: js.region,
+      Level: data.level,
+      Region: data.region,
     });
-  } catch (e) {
+
+  } catch (err) {
     return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: "Server error"
     });
   }
-}
+} 
