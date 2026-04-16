@@ -1,17 +1,17 @@
 import os
 import requests
-from flask import Flask, request, jsonify, render_template_string, session, redirect
+from flask import Flask, request, jsonify, render_template_string, session, redirect, url_for
 from datetime import timedelta, datetime
 
 app = Flask(__name__)
 
 # সিকিউরিটি কনফিগারেশন
-app.secret_key = os.getenv("SECRET_KEY", "SAKIB_ULTIMATE_PREMIUM_999")
+app.secret_key = os.getenv("SECRET_KEY", "SAKIB_ULTIMATE_PREMIUM_FINAL_X")
 app.permanent_session_lifetime = timedelta(days=30)
 
 ADMIN_PASS = "sakib123"
 
-# ইন-মেমোরি ডাটাবেস (সার্ভার রিস্টার্ট দিলে ডাটা মুছে যাবে)
+# ডাটাবেস স্ট্রাকচার
 DATABASE = {
     "apis": {},
     "keys": {}
@@ -41,9 +41,10 @@ HTML_LAYOUT = """
         .btn-sm{padding:5px 12px;border-radius:5px;text-decoration:none;font-size:12px;font-weight:bold;cursor:pointer;border:none;}
         .btn-edit{background:var(--edit);color:#000;}
         .btn-del{background:var(--danger);color:#fff;}
-        .param-row{display:flex;gap:10px;margin-bottom:5px;}
+        .param-row{display:flex;gap:10px;margin-bottom:10px;align-items:center;background:#000;padding:10px;border-radius:8px;}
         code{color:var(--edit);background:#000;padding:4px 8px;border-radius:5px;display:block;margin-top:10px;font-size:11px;border:1px dashed #444;}
         .checkbox-group{display:grid;grid-template-columns: 1fr 1fr;gap:10px;margin:10px 0;text-align:left;}
+        .remove-btn{background:var(--danger);color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;}
     </style>
 </head>
 <body>
@@ -75,7 +76,7 @@ HTML_LAYOUT = """
             <h3>GENERATE ACCESS KEY</h3>
             <form action="/key-gen" method="POST">
                 <input type="text" name="c_key" placeholder="Custom Key (Optional)">
-                <input type="number" name="limit" placeholder="Usage Limit (e.g. 100)" required>
+                <input type="number" name="limit" placeholder="Usage Limit" required>
                 <input type="date" name="expiry" required>
                 <p style="font-size:12px;margin-bottom:5px;">Select Permitted APIs:</p>
                 <div class="checkbox-group">
@@ -120,26 +121,27 @@ HTML_LAYOUT = """
             <h3>EDIT API: {{ slug }}</h3>
             <form method="POST">
                 <p>Main Parameter:</p>
-                <input type="text" name="param" value="{{ api.param }}" placeholder="Main Parameter">
+                <input type="text" name="param" value="{{ api.param }}" required>
                 
-                <p>Custom JSON Response Fields:</p>
+                <p>Modify/Add Response Parameters (Original → New):</p>
                 <div id="param-fields">
-                    {% for k, v in api['custom_params'].items() %}
+                    {% for orig, new in api['mapping'].items() %}
                     <div class="param-row">
-                        <input type="text" name="p_keys" value="{{ k }}" placeholder="Field Name">
-                        <input type="text" name="p_vals" value="{{ v }}" placeholder="Field Value">
+                        <input type="text" name="orig_keys" value="{{ orig }}" placeholder="Original Key">
+                        <input type="text" name="new_vals" value="{{ new }}" placeholder="New Value/Replacement">
+                        <div class="remove-btn" onclick="this.parentElement.remove()">×</div>
                     </div>
                     {% endfor %}
                 </div>
-                <button type="button" onclick="addParamRow()" style="background:#444;color:#fff;margin-bottom:10px;">+ ADD NEW FIELD</button>
+                <button type="button" onclick="addRow()" style="background:#444;color:#fff;margin-bottom:10px;">+ ADD / EDIT PARAMETER</button>
                 <button type="submit">SAVE SETTINGS</button>
             </form>
         </div>
         <script>
-            function addParamRow(){
+            function addRow(){
                 const div = document.createElement('div');
                 div.className = 'param-row';
-                div.innerHTML = '<input type="text" name="p_keys" placeholder="Field Name"><input type="text" name="p_vals" placeholder="Field Value">';
+                div.innerHTML = '<input type="text" name="orig_keys" placeholder="Key (Original)"><input type="text" name="new_vals" placeholder="New Value"><div class="remove-btn" onclick="this.parentElement.remove()">×</div>';
                 document.getElementById('param-fields').appendChild(div);
             }
         </script>
@@ -176,7 +178,6 @@ def admin():
             session.permanent = True
             return redirect('/admin')
         error = True
-    
     if session.get('logged_in'):
         return render_template_string(HTML_LAYOUT, page='dash', data=DATABASE, root=request.url_root)
     return render_template_string(HTML_LAYOUT, page='login', error=error)
@@ -188,7 +189,7 @@ def add():
     DATABASE['apis'][slug] = {
         "url": request.form.get('url'),
         "param": request.form.get('param'),
-        "custom_params": {"owner": "SB-SAKIB", "credit": "@sakib01994"}
+        "mapping": {"owner": "SB-SAKIB", "credit": "@sakib01994"}
     }
     return redirect('/admin')
 
@@ -198,9 +199,9 @@ def settings(slug):
     api = DATABASE['apis'].get(slug)
     if request.method == 'POST':
         api['param'] = request.form.get('param')
-        keys = request.form.getlist('p_keys')
-        vals = request.form.getlist('p_vals')
-        api['custom_params'] = {k: v for k, v in zip(keys, vals) if k}
+        orig_keys = request.form.getlist('orig_keys')
+        new_vals = request.form.getlist('new_vals')
+        api['mapping'] = {k: v for k, v in zip(orig_keys, new_vals) if k}
         return redirect('/admin')
     return render_template_string(HTML_LAYOUT, page='edit_api', api=api, slug=slug)
 
@@ -244,45 +245,37 @@ def dynamic_api(slug):
     k = DATABASE['keys'].get(key_code)
     if not k: return jsonify({"status": "error", "message": "Invalid Key"}), 403
 
-    # পারমিশন চেক
     if slug not in k['allowed']:
-        return jsonify({
-            "status": "NOT_PERMITTED",
-            "message": f"You don't have access to {slug} API",
-            "owner": "SB-SAKIB"
-        }), 403
+        return jsonify({"status": "NOT_PERMITTED", "message": f"No access to {slug}", "owner": "SB-SAKIB"}), 403
 
-    # এক্সপায়ারি চেক
     if datetime.now().date() > datetime.strptime(k['expiry'], "%Y-%m-%d").date():
-        return jsonify({"status": "error", "message": "Key Expired", "owner": "SB-SAKIB"}), 403
+        return jsonify({"status": "error", "message": "Key Expired"}), 403
 
-    # লিমিট চেক
     if k['used'] >= k['limit']:
-        return jsonify({
-            "status": "LIMIT_EXCEEDED", 
-            "message": "Usage limit finished",
-            "owner": "SB-SAKIB"
-        }), 403
+        return jsonify({"status": "LIMIT_EXCEEDED", "owner": "SB-SAKIB"}), 403
 
     term = request.args.get(api['param'])
-    if not term: return jsonify({"status": "error", "message": f"Parameter '{api['param']}' missing"}), 400
+    if not term: return jsonify({"status": "error", "message": f"Param {api['param']} missing"}), 400
 
     try:
         r = requests.get(api['url'], params={api['param']: term}, timeout=15)
-        res_data = r.json()
+        raw_data = r.json()
         
-        # কাস্টম প্যারামিটার ইনজেকশন
-        final_resp = res_data if isinstance(res_data, dict) else {"data": res_data}
-        for ck, cv in api['custom_params'].items():
-            final_resp[ck] = cv
+        # জেসন এক্সচেঞ্জ লজিক
+        if not isinstance(raw_data, dict):
+            raw_data = {"response": raw_data}
+            
+        # অরিজিনাল ডাটা রিপ্লেস বা নতুন ডাটা অ্যাড
+        for k_orig, v_new in api['mapping'].items():
+            raw_data[k_orig] = v_new
         
-        final_resp['status'] = "SUCCESS BY SAKIB"
-        final_resp['remaining_limit'] = k['limit'] - (k['used'] + 1)
+        raw_data['status'] = "SUCCESS BY SAKIB"
+        raw_data['remaining'] = k['limit'] - (k['used'] + 1)
         
-        k['used'] += 1  # লিমিট কমানো
-        return jsonify(final_resp)
+        k['used'] += 1
+        return jsonify(raw_data)
     except Exception as e:
-        return jsonify({"status": "error", "message": "Origin API Error", "details": str(e)}), 500
+        return jsonify({"status": "error", "details": str(e)}), 500
 
 @app.route('/logout')
 def logout():
@@ -294,4 +287,4 @@ def home():
     return redirect('/admin')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True)
