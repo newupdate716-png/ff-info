@@ -6,7 +6,7 @@ from datetime import timedelta, datetime
 app = Flask(__name__)
 
 # সিকিউরিটি কনফিগারেশন
-app.secret_key = os.getenv("SECRET_KEY", "SAKIB_ULTIMATE_PREMIUM_FINAL_X")
+app.secret_key = os.getenv("SECRET_KEY", "SAKIB_ULTIMATE_PREMIUM_CLEAN_X")
 app.permanent_session_lifetime = timedelta(days=30)
 
 ADMIN_PASS = "sakib123"
@@ -44,7 +44,7 @@ HTML_LAYOUT = """
         .param-row{display:flex;gap:10px;margin-bottom:10px;align-items:center;background:#000;padding:10px;border-radius:8px;}
         code{color:var(--edit);background:#000;padding:4px 8px;border-radius:5px;display:block;margin-top:10px;font-size:11px;border:1px dashed #444;}
         .checkbox-group{display:grid;grid-template-columns: 1fr 1fr;gap:10px;margin:10px 0;text-align:left;}
-        .remove-btn{background:var(--danger);color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;}
+        .remove-btn{background:var(--danger);color:#fff;width:35px;height:35px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;border:none;}
     </style>
 </head>
 <body>
@@ -102,11 +102,11 @@ HTML_LAYOUT = """
         <div class="item">
             <strong>Key: {{ key }}</strong> 
             <div style="font-size:13px;margin-top:5px;color:#aaa;">
-                Usage: {{ info.used }}/{{ info.limit }} | Expiry: {{ info.expiry }} <br>
-                Permissions: {{ info.allowed|join(', ') }}
+                Used: {{ info.used }}/{{ info.limit }} | Exp: {{ info.expiry }} <br>
+                APIs: {{ info.allowed|join(', ') }}
             </div>
             <div class="action-btns">
-                <a href="/edit-key/{{ key }}" class="btn-sm btn-edit">EDIT / TIME / LIMIT</a>
+                <a href="/edit-key/{{ key }}" class="btn-sm btn-edit">EDIT KEY</a>
                 <form action="/del-key" method="POST" style="display:inline;">
                     <input type="hidden" name="key_id" value="{{ key }}">
                     <button type="submit" class="btn-sm btn-del">DELETE</button>
@@ -123,17 +123,17 @@ HTML_LAYOUT = """
                 <p>Main Parameter:</p>
                 <input type="text" name="param" value="{{ api.param }}" required>
                 
-                <p>Modify/Add Response Parameters (Original → New):</p>
+                <p>JSON Response Mapping (Original Key → Your Text):</p>
                 <div id="param-fields">
                     {% for orig, new in api['mapping'].items() %}
                     <div class="param-row">
-                        <input type="text" name="orig_keys" value="{{ orig }}" placeholder="Original Key">
-                        <input type="text" name="new_vals" value="{{ new }}" placeholder="New Value/Replacement">
-                        <div class="remove-btn" onclick="this.parentElement.remove()">×</div>
+                        <input type="text" name="orig_keys" value="{{ orig }}" placeholder="Original Key Name">
+                        <input type="text" name="new_vals" value="{{ new }}" placeholder="Replacement Text">
+                        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>
                     </div>
                     {% endfor %}
                 </div>
-                <button type="button" onclick="addRow()" style="background:#444;color:#fff;margin-bottom:10px;">+ ADD / EDIT PARAMETER</button>
+                <button type="button" onclick="addRow()" style="background:#444;color:#fff;margin-bottom:10px;">+ ADD NEW RULE</button>
                 <button type="submit">SAVE SETTINGS</button>
             </form>
         </div>
@@ -141,7 +141,7 @@ HTML_LAYOUT = """
             function addRow(){
                 const div = document.createElement('div');
                 div.className = 'param-row';
-                div.innerHTML = '<input type="text" name="orig_keys" placeholder="Key (Original)"><input type="text" name="new_vals" placeholder="New Value"><div class="remove-btn" onclick="this.parentElement.remove()">×</div>';
+                div.innerHTML = '<input type="text" name="orig_keys" placeholder="Original Key Name"><input type="text" name="new_vals" placeholder="Replacement Text"><button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>';
                 document.getElementById('param-fields').appendChild(div);
             }
         </script>
@@ -150,11 +150,9 @@ HTML_LAYOUT = """
         <div class="card">
             <h3>EDIT KEY: {{ key_id }}</h3>
             <form method="POST">
-                <p>Usage Limit:</p>
-                <input type="number" name="limit" value="{{ key_info.limit }}">
-                <p>Expiry Date:</p>
+                <input type="number" name="limit" value="{{ key_info.limit }}" placeholder="Limit">
                 <input type="date" name="expiry" value="{{ key_info.expiry }}">
-                <p>Modify Permissions:</p>
+                <p>APIs:</p>
                 <div class="checkbox-group">
                     {% for slug in data['apis'].keys() %}
                     <label><input type="checkbox" name="allowed_apis" value="{{ slug }}" {% if slug in key_info.allowed %}checked{% endif %}> {{ slug|upper }}</label>
@@ -189,7 +187,7 @@ def add():
     DATABASE['apis'][slug] = {
         "url": request.form.get('url'),
         "param": request.form.get('param'),
-        "mapping": {"owner": "SB-SAKIB", "credit": "@sakib01994"}
+        "mapping": {"status": "SUCCESS BY SAKIB", "owner": "SB-SAKIB @sakib01994"}
     }
     return redirect('/admin')
 
@@ -240,42 +238,39 @@ def dynamic_api(slug):
     if not api: return jsonify({"status": "error", "message": "API Not Found"}), 404
 
     key_code = request.args.get('key')
-    if not key_code: return jsonify({"status": "error", "message": "Access Key Required"}), 401
+    if not key_code: return jsonify({"status": "error", "message": "Access Key Required", "contact": "@sakib01994"}), 401
 
     k = DATABASE['keys'].get(key_code)
-    if not k: return jsonify({"status": "error", "message": "Invalid Key"}), 403
+    if not k: return jsonify({"status": "error", "message": "Invalid Key. Contact Admin.", "contact": "@sakib01994"}), 403
 
     if slug not in k['allowed']:
-        return jsonify({"status": "NOT_PERMITTED", "message": f"No access to {slug}", "owner": "SB-SAKIB"}), 403
+        return jsonify({"status": "error", "message": "No permission for this API", "contact": "@sakib01994"}), 403
 
     if datetime.now().date() > datetime.strptime(k['expiry'], "%Y-%m-%d").date():
-        return jsonify({"status": "error", "message": "Key Expired"}), 403
+        return jsonify({"status": "error", "message": "Key Expired. Please Renew.", "contact": "@sakib01994"}), 403
 
     if k['used'] >= k['limit']:
-        return jsonify({"status": "LIMIT_EXCEEDED", "owner": "SB-SAKIB"}), 403
+        return jsonify({"status": "LIMIT_EXCEEDED", "message": "Your limit is over. Please contact owner.", "contact": "@sakib01994"}), 403
 
     term = request.args.get(api['param'])
-    if not term: return jsonify({"status": "error", "message": f"Param {api['param']} missing"}), 400
+    if not term: return jsonify({"status": "error", "message": f"Parameter '{api['param']}' is required"}), 400
 
     try:
         r = requests.get(api['url'], params={api['param']: term}, timeout=15)
         raw_data = r.json()
         
-        # জেসন এক্সচেঞ্জ লজিক
+        # জেসন এক্সচেঞ্জ লজিক (Original Key কে New Text দিয়ে পরিবর্তন)
         if not isinstance(raw_data, dict):
             raw_data = {"response": raw_data}
             
-        # অরিজিনাল ডাটা রিপ্লেস বা নতুন ডাটা অ্যাড
         for k_orig, v_new in api['mapping'].items():
+            # যদি অরিজিনাল কী জেসনের ভেতরে থাকে তবে সেটি রিপ্লেস করবে, না থাকলে নতুন হিসেবে অ্যাড হবে
             raw_data[k_orig] = v_new
         
-        raw_data['status'] = "SUCCESS BY SAKIB"
-        raw_data['remaining'] = k['limit'] - (k['used'] + 1)
-        
-        k['used'] += 1
+        k['used'] += 1 # ব্যাকগ্রাউন্ডে লিমিট আপডেট
         return jsonify(raw_data)
     except Exception as e:
-        return jsonify({"status": "error", "details": str(e)}), 500
+        return jsonify({"status": "error", "message": "API Origin Error", "details": str(e)}), 500
 
 @app.route('/logout')
 def logout():
