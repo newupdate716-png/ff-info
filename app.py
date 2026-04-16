@@ -1,5 +1,4 @@
 import os
-import json
 import requests
 import uuid
 import time
@@ -7,171 +6,170 @@ from flask import Flask, request, jsonify, render_template_string, session, redi
 from datetime import timedelta
 
 app = Flask(__name__)
-app.secret_key = "SB_SAKIB_PREMIUM_ADMIN_v3"
-app.permanent_session_lifetime = timedelta(days=30) # ৩০ দিন পর্যন্ত লগইন থাকবে
+app.secret_key = "SB_SAKIB_PREMIUM_FINAL_VERSION"
+app.permanent_session_lifetime = timedelta(days=7)
 
-# --- সেটিংস (পাসওয়ার্ড কোডের মধ্যেই আছে) ---
+# --- এডমিন সেটিংস ---
 ADMIN_PASS = "sakib123" 
 
-# Vercel-এ ডাটা সংরক্ষণের জন্য টেম্পোরারি ডিকশনারি
-DATA = {
+# গ্লোবাল ভেরিয়েবল (Vercel ইন্সট্যান্স চালু থাকা পর্যন্ত ডাটা থাকবে)
+DATABASE = {
     "apis": {},
     "keys": {}
 }
 
-# --- প্রিমিয়াম ডার্ক থিম UI ---
-HTML_TEMPLATE = """
+# --- প্রিমিয়াম ডার্ক ইউআই (একদম ক্লিন ডিজাইন) ---
+UI_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SB SAKIB | API MANAGER</title>
+    <title>SAKIB API PANEL</title>
     <style>
-        :root { --main: #00f2fe; --bg: #0a0a0c; --card: #151518; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: #fff; margin: 0; padding: 0; }
-        .header { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; text-align: center; font-size: 24px; font-weight: 800; box-shadow: 0 5px 20px rgba(0,242,254,0.2); }
-        .container { max-width: 800px; margin: 30px auto; padding: 0 15px; }
-        .card { background: var(--card); border: 1px solid #222; padding: 25px; border-radius: 15px; margin-bottom: 25px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #333; background: #1c1c21; color: #fff; box-sizing: border-box; }
-        button { width: 100%; padding: 14px; background: #00f2fe; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        button:hover { background: #4facfe; transform: translateY(-2px); }
-        .api-box { border-left: 4px solid #00f2fe; background: #1c1c21; padding: 15px; margin: 15px 0; border-radius: 5px; }
-        code { color: #00f2fe; word-break: break-all; }
-        .badge { background: #00f2fe; color: #000; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        :root { --accent: #00ffcc; --bg: #0d0d12; --card: #16161d; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: #e0e0e0; margin: 0; }
+        .nav { background: #1a1a24; padding: 20px; text-align: center; border-bottom: 2px solid var(--accent); font-weight: bold; font-size: 22px; letter-spacing: 1px; color: var(--accent); }
+        .container { max-width: 700px; margin: 30px auto; padding: 0 20px; }
+        .card { background: var(--card); border-radius: 15px; padding: 25px; margin-bottom: 25px; border: 1px solid #252530; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h3 { margin-top: 0; color: var(--accent); font-size: 18px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #333; background: #0d0d12; color: #fff; box-sizing: border-box; outline: none; }
+        input:focus { border-color: var(--accent); }
+        button { width: 100%; padding: 14px; background: var(--accent); border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; transition: 0.3s; }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+        .api-item { background: #1f1f29; padding: 15px; border-radius: 10px; border-left: 4px solid var(--accent); margin-top: 15px; }
+        code { color: #ffcc00; word-break: break-all; }
+        .badge { background: var(--accent); color: #000; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: bold; }
+        .logout-btn { display: block; text-align: center; color: #ff4d4d; text-decoration: none; margin-top: 20px; font-size: 14px; }
     </style>
 </head>
 <body>
-    <div class="header">SB SAKIB PREMIUM API PANEL</div>
+    <div class="nav">SB SAKIB PREMIUM API PANEL</div>
     <div class="container">
         {% if page == 'login' %}
-        <div class="card" style="max-width: 400px; margin: 50px auto;">
-            <h2 style="text-align: center;">Admin Access</h2>
-            <form method="POST" action="/admin">
-                <input type="password" name="password" placeholder="Enter Admin Password" required>
-                <button type="submit">Login Now</button>
-            </form>
-            {% if error %}<p style="color: red; text-align: center;">Incorrect Password!</p>{% endif %}
-        </div>
-        {% elif page == 'dashboard' %}
-        <div class="card">
-            <h3>➕ Add New Main API</h3>
-            <form action="/add-api" method="POST">
-                <input type="text" name="type" placeholder="Type (e.g. TG Number)" required>
-                <input type="text" name="url" placeholder="Original API URL (e.g. https://site.com/api?id=)" required>
-                <button type="submit">Deploy Sub-API</button>
-            </form>
-        </div>
-
-        <div class="card">
-            <h3>🔑 Generate API Key</h3>
-            <form action="/gen-key" method="POST">
-                <input type="number" name="limit" placeholder="Request Limit" required>
-                <input type="date" name="expiry" required>
-                <button type="submit" style="background: #ff4b2b; color: white;">Generate Premium Key</button>
-            </form>
-        </div>
-
-        <h3>📦 Active Sub-APIs</h3>
-        {% for id, item in data.apis.items() %}
-        <div class="api-box">
-            <span class="badge">{{ item.type }}</span><br>
-            <p>Vercel URL: <code>{{ root_url }}api/{{ id }}?key=YOUR_KEY&term=SEARCH_VALUE</code></p>
-            <small style="color: #666;">Target: {{ item.url }}</small>
-        </div>
-        {% endfor %}
-
-        <h3>🎫 Active Keys</h3>
-        {% for key, info in data.keys.items() %}
-        <div class="api-box" style="border-left-color: #ff4b2b;">
-            <b>Key:</b> {{ key }} <br>
-            <b>Usage:</b> {{ info.used }}/{{ info.limit }} | <b>Expiry:</b> {{ info.expiry }}
-        </div>
-        {% endfor %}
-
-        <p style="text-align: center;"><a href="/logout" style="color: #666; text-decoration: none;">Logout Panel</a></p>
+            <div class="card" style="max-width: 350px; margin: 100px auto;">
+                <h3 style="text-align: center;">ADMIN LOGIN</h3>
+                <form method="POST">
+                    <input type="password" name="password" placeholder="Admin Password" required>
+                    <button type="submit">LOGIN</button>
+                </form>
+                {% if error %}<p style="color: #ff4d4d; text-align: center; font-size: 13px;">Invalid Password!</p>{% endif %}
+            </div>
+        {% else %}
+            <div class="card">
+                <h3>➕ ADD NEW API</h3>
+                <form action="/add" method="POST">
+                    <input type="text" name="type" placeholder="API Type (e.g. TG Number)" required>
+                    <input type="text" name="url" placeholder="Main API URL (https://...)" required>
+                    <button type="submit">DEPLOY API</button>
+                </form>
+            </div>
+            <div class="card">
+                <h3>🔑 GENERATE KEY</h3>
+                <form action="/key" method="POST">
+                    <input type="number" name="limit" placeholder="Request Limit" required>
+                    <input type="date" name="expiry" required>
+                    <button type="submit" style="background: #ffcc00;">CREATE KEY</button>
+                </form>
+            </div>
+            <h3>📦 DEPLOYED APIS</h3>
+            {% for id, api in data.apis.items() %}
+                <div class="api-item">
+                    <span class="badge">{{ api.type }}</span><br>
+                    <p style="font-size: 14px;">URL: <code>{{ root }}api/{{ id }}?key=YOUR_KEY&term=VALUE</code></p>
+                </div>
+            {% endfor %}
+            <a href="/logout" class="logout-btn">LOGOUT SYSTEM</a>
         {% endif %}
     </div>
 </body>
 </html>
 """
 
-# --- রাউট লজিক ---
-
 @app.route('/admin', methods=['GET', 'POST'])
-def admin():
+def admin_panel():
+    error = False
     if request.method == 'POST':
         if request.form.get('password') == ADMIN_PASS:
-            session.permanent = True
             session['logged_in'] = True
-            return redirect(url_for('admin'))
-        return render_template_string(HTML_TEMPLATE, page='login', error=True)
+            return redirect(url_for('admin_panel'))
+        error = True
     
     if session.get('logged_in'):
-        return render_template_string(HTML_TEMPLATE, page='dashboard', data=DATA, root_url=request.url_root)
-    
-    return render_template_string(HTML_TEMPLATE, page='login')
+        return render_template_string(UI_HTML, page='dash', data=DATABASE, root=request.url_root)
+    return render_template_string(UI_HTML, page='login', error=error)
 
-@app.route('/add-api', methods=['POST'])
+@app.route('/add', methods=['POST'])
 def add_api():
-    if not session.get('logged_in'): return redirect(url_for('admin'))
-    api_id = str(uuid.uuid4())[:6]
-    DATA['apis'][api_id] = {
+    if not session.get('logged_in'): return redirect(url_for('admin_panel'))
+    uid = str(uuid.uuid4())[:6]
+    DATABASE['apis'][uid] = {
         "type": request.form.get('type'),
         "url": request.form.get('url')
     }
-    return redirect(url_for('admin'))
+    return redirect(url_for('admin_panel'))
 
-@app.route('/gen-key', methods=['POST'])
+@app.route('/key', methods=['POST'])
 def gen_key():
-    if not session.get('logged_in'): return redirect(url_for('admin'))
-    new_key = "SAKIB-" + str(uuid.uuid4())[:8].upper()
-    DATA['keys'][new_key] = {
+    if not session.get('logged_in'): return redirect(url_for('admin_panel'))
+    key = "SAKIB-" + str(uuid.uuid4())[:8].upper()
+    DATABASE['keys'][key] = {
         "limit": int(request.form.get('limit')),
         "expiry": request.form.get('expiry'),
         "used": 0
     }
-    return redirect(url_for('admin'))
+    return redirect(url_for('admin_panel'))
 
 @app.route('/api/<api_id>')
-def gateway(api_id):
-    api = DATA['apis'].get(api_id)
-    key = request.args.get('key')
+def api_handler(api_id):
+    api = DATABASE['apis'].get(api_id)
+    user_key = request.args.get('key')
     term = request.args.get('term', '')
 
-    if not api or not key:
-        return jsonify({"error": "Unauthorized Access"}), 401
+    if not api or not user_key:
+        return jsonify({"status": "error", "msg": "API or Key missing"}), 401
 
-    key_info = DATA['keys'].get(key)
+    key_info = DATABASE['keys'].get(user_key)
     if not key_info:
-        return jsonify({"error": "Invalid API Key"}), 403
+        return jsonify({"status": "error", "msg": "Invalid Key"}), 403
 
-    # লিমিট ও এক্সপায়ারি চেক
-    today = time.strftime("%Y-%m-%d")
-    if key_info['used'] >= key_info['limit'] or key_info['expiry'] < today:
-        return jsonify({"error": "Key Expired or Limit Reached"}), 403
+    # এক্সপায়ারি চেক
+    if key_info['used'] >= key_info['limit'] or key_info['expiry'] < time.strftime("%Y-%m-%d"):
+        return jsonify({"status": "error", "msg": "Key Expired or Limit Reached"}), 403
 
     try:
-        # মেইন এপিআই কল করা হচ্ছে
-        # আপনার অরিজিনাল ইউআরএল এ যদি প্যারামিটার যোগ করতে হয়:
-        resp = requests.get(f"{api['url']}{term}").json()
+        # মেইন এপিআই কল
+        main_url = api['url']
+        if "?" in main_url:
+            target = f"{main_url}&term={term}"
+        else:
+            target = f"{main_url}?term={term}"
+            
+        r = requests.get(target).json()
         
-        # আপনার রিকোয়েস্ট অনুযায়ী JSON প্যারামিটার এডিট
-        resp['owner'] = "SB-SAKIB @sakib01994"
-        resp['status'] = "SUCCESS BY SAKIB"
-        resp['contact'] = "@sakib01994"
-
-        # লিমিট আপডেট
+        # প্রিমিয়াম প্যারামিটার মডিফিকেশন
+        r['owner'] = "SB-SAKIB @sakib01994"
+        r['status'] = "SUCCESS BY SAKIB"
+        r['contact'] = "@sakib01994"
+        
         key_info['used'] += 1
-        return jsonify(resp)
-    except:
-        return jsonify({"error": "Main API not responding"}), 500
+        return jsonify(r)
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
 
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('admin'))
+    return redirect(url_for('admin_panel'))
 
 @app.route('/')
-def index():
-    return "<h1>System Active. Visit /admin to login.</h1>"
+def home():
+    return redirect(url_for('admin_panel'))
+
+# Vercel এর জন্য গ্লোবাল এরর হ্যান্ডলিং
+@app.errorhandler(500)
+def internal_error(e):
+    return "<h1>500 Error: Application Problem. Check Vercel Logs.</h1>", 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
