@@ -13,9 +13,10 @@ app.permanent_session_lifetime = timedelta(days=30)
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=False  # Vercel HTTPS হলে True করতে পারেন
+    SESSION_COOKIE_SECURE=False  # HTTPS only হলে True করতে পারেন
 )
 
+# ---------------- ADMIN PASSWORD ----------------
 ADMIN_PASS = "sakib123"
 
 # ---------------- MEMORY DATABASE ----------------
@@ -24,8 +25,9 @@ DATABASE = {
     "keys": {}
 }
 
-# ---------------- HTML ----------------
-HTML_LAYOUT = """<!DOCTYPE html>
+# ---------------- HTML TEMPLATE ----------------
+HTML_LAYOUT = """
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -49,6 +51,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <body>
     <div class="nav">SB SAKIB PREMIUM PANEL</div>
     <div class="container">
+
         {% if page == 'login' %}
             <div class="card" style="max-width: 350px; margin: 50px auto;">
                 <h3 style="text-align: center;">ADMIN LOGIN</h3>
@@ -56,8 +59,11 @@ HTML_LAYOUT = """<!DOCTYPE html>
                     <input type="password" name="password" placeholder="Admin Password" required>
                     <button type="submit">LOGIN</button>
                 </form>
-                {% if error %}<p style="color:red; text-align:center;">Wrong Password!</p>{% endif %}
+                {% if error %}
+                    <p style="color:red; text-align:center;">Wrong Password!</p>
+                {% endif %}
             </div>
+
         {% elif page == 'dash' %}
             <div class="card">
                 <h3><i class="fas fa-plus"></i> ADD API</h3>
@@ -67,6 +73,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
                     <button type="submit">DEPLOY</button>
                 </form>
             </div>
+
             <div class="card">
                 <h3><i class="fas fa-key"></i> CREATE KEY</h3>
                 <form action="/key" method="POST">
@@ -76,16 +83,18 @@ HTML_LAYOUT = """<!DOCTYPE html>
                     <button type="submit" style="background: #ffcc00;">GENERATE</button>
                 </form>
             </div>
+
             <h3>ACTIVE APIS</h3>
-            {% for id, api in data.apis.items() %}
+            {% for id, api in data['apis'].items() %}
                 <div class="item">
                     <a href="/settings/{{ id }}" class="btn-edit">SETTINGS</a>
                     <b>{{ api.type }}</b><br><br>
                     <code>{{ root }}api/{{ id }}?key=[KEY]&term=[VALUE]</code>
                 </div>
             {% endfor %}
+
             <h3>ACTIVE KEYS</h3>
-            {% for key, info in data.keys.items() %}
+            {% for key, info in data['keys'].items() %}
                 <div class="item" style="border-left-color: #ffcc00;">
                     <form action="/del-key" method="POST" style="display:inline;">
                         <input type="hidden" name="key_id" value="{{ key }}">
@@ -95,7 +104,11 @@ HTML_LAYOUT = """<!DOCTYPE html>
                     <small>Used: {{ info.used }}/{{ info.limit }} | Exp: {{ info.expiry }}</small>
                 </div>
             {% endfor %}
-            <p style="text-align: center;"><a href="/logout" style="color: var(--danger); text-decoration: none;">Logout Panel</a></p>
+
+            <p style="text-align: center;">
+                <a href="/logout" style="color: var(--danger); text-decoration: none;">Logout Panel</a>
+            </p>
+
         {% elif page == 'edit' %}
             <div class="card">
                 <h3>EDIT PARAMETERS</h3>
@@ -106,47 +119,41 @@ HTML_LAYOUT = """<!DOCTYPE html>
                     <input type="text" name="p_val" value="{{ api.params.val }}" required>
                     <button type="submit">SAVE CHANGES</button>
                 </form>
-                <br><a href="/admin" style="color: #888;">← Cancel</a>
+                <br>
+                <a href="/admin" style="color: #888;">← Cancel</a>
             </div>
         {% endif %}
+
     </div>
 </body>
-</html>"""
-# নিজের existing HTML paste করবেন এখানে
+</html>
+"""
 
 # ---------------- ADMIN ----------------
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     error = False
 
-    try:
-        if request.method == 'POST':
-            password = request.form.get('password', '').strip()
+    if request.method == 'POST':
+        if request.form.get('password', '').strip() == ADMIN_PASS:
+            session.permanent = True
+            session['logged_in'] = True
+            return redirect(url_for('admin'))
+        error = True
 
-            if password == ADMIN_PASS:
-                session.permanent = True
-                session['logged_in'] = True
-                return redirect(url_for('admin'))
-            else:
-                error = True
-
-        if session.get('logged_in'):
-            return render_template_string(
-                HTML_LAYOUT,
-                page='dash',
-                data=DATABASE,
-                root=request.url_root
-            )
-
+    if session.get('logged_in'):
         return render_template_string(
             HTML_LAYOUT,
-            page='login',
-            error=error
+            page='dash',
+            data=DATABASE,
+            root=request.url_root
         )
 
-    except Exception as e:
-        return f"Admin Error: {str(e)}", 500
-
+    return render_template_string(
+        HTML_LAYOUT,
+        page='login',
+        error=error
+    )
 
 # ---------------- ADD API ----------------
 @app.route('/add', methods=['POST'])
@@ -154,29 +161,24 @@ def add():
     if not session.get('logged_in'):
         return redirect(url_for('admin'))
 
-    try:
-        api_type = request.form.get('type', '').strip()
-        api_url = request.form.get('url', '').strip()
+    api_type = request.form.get('type', '').strip()
+    api_url = request.form.get('url', '').strip()
 
-        if not api_type or not api_url:
-            return "Missing API Type or URL", 400
+    if not api_type or not api_url:
+        return "Missing Fields", 400
 
-        uid = str(uuid.uuid4())[:6]
+    uid = str(uuid.uuid4())[:6]
 
-        DATABASE['apis'][uid] = {
-            "type": api_type,
-            "url": api_url,
-            "params": {
-                "key": "owner",
-                "val": "SB-SAKIB @sakib01994"
-            }
+    DATABASE['apis'][uid] = {
+        "type": api_type,
+        "url": api_url,
+        "params": {
+            "key": "owner",
+            "val": "SB-SAKIB @sakib01994"
         }
+    }
 
-        return redirect(url_for('admin'))
-
-    except Exception as e:
-        return f"Add API Error: {str(e)}", 500
-
+    return redirect(url_for('admin'))
 
 # ---------------- SETTINGS ----------------
 @app.route('/settings/<api_id>', methods=['GET', 'POST'])
@@ -189,22 +191,16 @@ def settings(api_id):
     if not api:
         return "API Not Found", 404
 
-    try:
-        if request.method == 'POST':
-            api['params']['key'] = request.form.get('p_key', '').strip()
-            api['params']['val'] = request.form.get('p_val', '').strip()
+    if request.method == 'POST':
+        api['params']['key'] = request.form.get('p_key', '').strip()
+        api['params']['val'] = request.form.get('p_val', '').strip()
+        return redirect(url_for('admin'))
 
-            return redirect(url_for('admin'))
-
-        return render_template_string(
-            HTML_LAYOUT,
-            page='edit',
-            api=api
-        )
-
-    except Exception as e:
-        return f"Settings Error: {str(e)}", 500
-
+    return render_template_string(
+        HTML_LAYOUT,
+        page='edit',
+        api=api
+    )
 
 # ---------------- CREATE KEY ----------------
 @app.route('/key', methods=['POST'])
@@ -212,27 +208,22 @@ def key_gen():
     if not session.get('logged_in'):
         return redirect(url_for('admin'))
 
-    try:
-        custom_key = request.form.get('c_key', '').strip()
-        limit = request.form.get('limit', '0').strip()
-        expiry = request.form.get('expiry', '').strip()
+    custom_key = request.form.get('c_key', '').strip()
+    limit = request.form.get('limit', '0').strip()
+    expiry = request.form.get('expiry', '').strip()
 
-        if not limit.isdigit():
-            return "Invalid Limit", 400
+    if not limit.isdigit():
+        return "Invalid Limit", 400
 
-        key = custom_key if custom_key else "SAKIB-" + str(uuid.uuid4())[:8].upper()
+    key = custom_key if custom_key else "SAKIB-" + str(uuid.uuid4())[:8].upper()
 
-        DATABASE['keys'][key] = {
-            "limit": int(limit),
-            "expiry": expiry,
-            "used": 0
-        }
+    DATABASE['keys'][key] = {
+        "limit": int(limit),
+        "expiry": expiry,
+        "used": 0
+    }
 
-        return redirect(url_for('admin'))
-
-    except Exception as e:
-        return f"Key Generate Error: {str(e)}", 500
-
+    return redirect(url_for('admin'))
 
 # ---------------- DELETE KEY ----------------
 @app.route('/del-key', methods=['POST'])
@@ -240,52 +231,50 @@ def del_key():
     if not session.get('logged_in'):
         return redirect(url_for('admin'))
 
-    try:
-        key_id = request.form.get('key_id')
-        DATABASE['keys'].pop(key_id, None)
+    key_id = request.form.get('key_id')
+    DATABASE['keys'].pop(key_id, None)
 
-        return redirect(url_for('admin'))
+    return redirect(url_for('admin'))
 
-    except Exception as e:
-        return f"Delete Key Error: {str(e)}", 500
-
-
-# ---------------- API GATEWAY ----------------
+# ---------------- GATEWAY ----------------
 @app.route('/api/<api_id>')
 def gateway(api_id):
+    api = DATABASE['apis'].get(api_id)
+    key = request.args.get('key')
+    term = request.args.get('term', '')
+
+    if not api:
+        return jsonify({"error": "API Not Found"}), 404
+
+    if not key:
+        return jsonify({"error": "Key Required"}), 401
+
+    k_info = DATABASE['keys'].get(key)
+
+    if not k_info:
+        return jsonify({"error": "Invalid Key"}), 403
+
     try:
-        api = DATABASE['apis'].get(api_id)
-        key = request.args.get('key')
-        term = request.args.get('term', '')
-
-        if not api:
-            return jsonify({"error": "API Not Found"}), 404
-
-        if not key:
-            return jsonify({"error": "Key Required"}), 401
-
-        k_info = DATABASE['keys'].get(key)
-
-        if not k_info:
-            return jsonify({"error": "Invalid Key"}), 403
-
         today = datetime.now().date()
         expiry_date = datetime.strptime(k_info['expiry'], "%Y-%m-%d").date()
+    except:
+        return jsonify({"error": "Invalid Expiry Format"}), 500
 
-        if today > expiry_date:
-            return jsonify({"error": "Key Expired"}), 403
+    if today > expiry_date:
+        return jsonify({"error": "Key Expired"}), 403
 
-        if k_info['used'] >= k_info['limit']:
-            return jsonify({"error": "Limit Exceeded"}), 403
+    if k_info['used'] >= k_info['limit']:
+        return jsonify({"error": "Limit Exceeded"}), 403
 
-        response = requests.get(
+    try:
+        r = requests.get(
             api['url'],
             params={"term": term},
             timeout=15
         )
 
         try:
-            data = response.json()
+            data = r.json()
         except:
             return jsonify({"error": "Main API Invalid JSON"}), 500
 
@@ -304,10 +293,9 @@ def gateway(api_id):
 
     except Exception as e:
         return jsonify({
-            "error": "Gateway Error",
+            "error": "Main API Error",
             "details": str(e)
         }), 500
-
 
 # ---------------- LOGOUT ----------------
 @app.route('/logout')
@@ -315,12 +303,10 @@ def logout():
     session.clear()
     return redirect(url_for('admin'))
 
-
 # ---------------- HOME ----------------
 @app.route('/')
 def home():
     return redirect(url_for('admin'))
 
-
-# ---------------- VERCEL EXPORT ----------------
+# ---------------- EXPORT ----------------
 app = app
