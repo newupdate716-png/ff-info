@@ -1,27 +1,31 @@
 import os
 import requests
 import uuid
-import time
 from flask import Flask, request, jsonify, render_template_string, session, redirect, url_for
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 app = Flask(__name__)
-# Vercel-এ সেশন এরর এড়াতে ফিক্সড কী
-app.secret_key = "SAKIB_ULTIMATE_SECURE_FIX_100"
+
+# ---------------- CONFIG ----------------
+app.secret_key = os.getenv("SECRET_KEY", "SAKIB_ULTIMATE_SECURE_FIX_100")
 app.permanent_session_lifetime = timedelta(days=30)
 
-# অ্যাডমিন পাসওয়ার্ড
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=False  # Vercel HTTPS হলে True করতে পারেন
+)
+
 ADMIN_PASS = "sakib123"
 
-# ডাটাবেস (মেমোরি স্টোরেজ)
+# ---------------- MEMORY DATABASE ----------------
 DATABASE = {
-    "apis": {}, 
-    "keys": {}  
+    "apis": {},
+    "keys": {}
 }
 
-# --- প্রিমিয়াম UI (একদম ক্লিন এবং ফাস্ট) ---
-HTML_LAYOUT = """
-<!DOCTYPE html>
+# ---------------- HTML ----------------
+HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -107,81 +111,216 @@ HTML_LAYOUT = """
         {% endif %}
     </div>
 </body>
-</html>
-"""
+</html>"""
+# নিজের existing HTML paste করবেন এখানে
 
+# ---------------- ADMIN ----------------
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     error = False
-    if request.method == 'POST':
-        if request.form.get('password') == ADMIN_PASS:
-            session.permanent = True
-            session['logged_in'] = True
-            return redirect(url_for('admin'))
-        error = True
-    
-    if session.get('logged_in'):
-        return render_template_string(HTML_LAYOUT, page='dash', data=DATABASE, root=request.url_root)
-    return render_template_string(HTML_LAYOUT, page='login', error=error)
 
+    try:
+        if request.method == 'POST':
+            password = request.form.get('password', '').strip()
+
+            if password == ADMIN_PASS:
+                session.permanent = True
+                session['logged_in'] = True
+                return redirect(url_for('admin'))
+            else:
+                error = True
+
+        if session.get('logged_in'):
+            return render_template_string(
+                HTML_LAYOUT,
+                page='dash',
+                data=DATABASE,
+                root=request.url_root
+            )
+
+        return render_template_string(
+            HTML_LAYOUT,
+            page='login',
+            error=error
+        )
+
+    except Exception as e:
+        return f"Admin Error: {str(e)}", 500
+
+
+# ---------------- ADD API ----------------
 @app.route('/add', methods=['POST'])
 def add():
-    if not session.get('logged_in'): return redirect(url_for('admin'))
-    uid = str(uuid.uuid4())[:6]
-    DATABASE['apis'][uid] = {
-        "type": request.form.get('type'), "url": request.form.get('url'),
-        "params": {"key": "owner", "val": "SB-SAKIB @sakib01994"}
-    }
-    return redirect(url_for('admin'))
+    if not session.get('logged_in'):
+        return redirect(url_for('admin'))
 
+    try:
+        api_type = request.form.get('type', '').strip()
+        api_url = request.form.get('url', '').strip()
+
+        if not api_type or not api_url:
+            return "Missing API Type or URL", 400
+
+        uid = str(uuid.uuid4())[:6]
+
+        DATABASE['apis'][uid] = {
+            "type": api_type,
+            "url": api_url,
+            "params": {
+                "key": "owner",
+                "val": "SB-SAKIB @sakib01994"
+            }
+        }
+
+        return redirect(url_for('admin'))
+
+    except Exception as e:
+        return f"Add API Error: {str(e)}", 500
+
+
+# ---------------- SETTINGS ----------------
 @app.route('/settings/<api_id>', methods=['GET', 'POST'])
 def settings(api_id):
-    if not session.get('logged_in'): return redirect(url_for('admin'))
-    api = DATABASE['apis'].get(api_id)
-    if request.method == 'POST':
-        api['params']['key'] = request.form.get('p_key')
-        api['params']['val'] = request.form.get('p_val')
+    if not session.get('logged_in'):
         return redirect(url_for('admin'))
-    return render_template_string(HTML_LAYOUT, page='edit', api=api)
 
+    api = DATABASE['apis'].get(api_id)
+
+    if not api:
+        return "API Not Found", 404
+
+    try:
+        if request.method == 'POST':
+            api['params']['key'] = request.form.get('p_key', '').strip()
+            api['params']['val'] = request.form.get('p_val', '').strip()
+
+            return redirect(url_for('admin'))
+
+        return render_template_string(
+            HTML_LAYOUT,
+            page='edit',
+            api=api
+        )
+
+    except Exception as e:
+        return f"Settings Error: {str(e)}", 500
+
+
+# ---------------- CREATE KEY ----------------
 @app.route('/key', methods=['POST'])
 def key_gen():
-    if not session.get('logged_in'): return redirect(url_for('admin'))
-    key = request.form.get('c_key') or "SAKIB-" + str(uuid.uuid4())[:8].upper()
-    DATABASE['keys'][key] = {"limit": int(request.form.get('limit')), "expiry": request.form.get('expiry'), "used": 0}
-    return redirect(url_for('admin'))
+    if not session.get('logged_in'):
+        return redirect(url_for('admin'))
 
+    try:
+        custom_key = request.form.get('c_key', '').strip()
+        limit = request.form.get('limit', '0').strip()
+        expiry = request.form.get('expiry', '').strip()
+
+        if not limit.isdigit():
+            return "Invalid Limit", 400
+
+        key = custom_key if custom_key else "SAKIB-" + str(uuid.uuid4())[:8].upper()
+
+        DATABASE['keys'][key] = {
+            "limit": int(limit),
+            "expiry": expiry,
+            "used": 0
+        }
+
+        return redirect(url_for('admin'))
+
+    except Exception as e:
+        return f"Key Generate Error: {str(e)}", 500
+
+
+# ---------------- DELETE KEY ----------------
 @app.route('/del-key', methods=['POST'])
 def del_key():
-    if not session.get('logged_in'): return redirect(url_for('admin'))
-    DATABASE['keys'].pop(request.form.get('key_id'), None)
-    return redirect(url_for('admin'))
+    if not session.get('logged_in'):
+        return redirect(url_for('admin'))
 
+    try:
+        key_id = request.form.get('key_id')
+        DATABASE['keys'].pop(key_id, None)
+
+        return redirect(url_for('admin'))
+
+    except Exception as e:
+        return f"Delete Key Error: {str(e)}", 500
+
+
+# ---------------- API GATEWAY ----------------
 @app.route('/api/<api_id>')
 def gateway(api_id):
-    api = DATABASE['apis'].get(api_id)
-    key = request.args.get('key')
-    term = request.args.get('term', '')
-    if not api or not key: return jsonify({"error": "Auth Failed"}), 401
-    k_info = DATABASE['keys'].get(key)
-    if not k_info or k_info['used'] >= k_info['limit'] or k_info['expiry'] < time.strftime("%Y-%m-%d"):
-        return jsonify({"error": "Key Invalid/Expired"}), 403
     try:
-        r = requests.get(api['url'], params={"term": term}).json()
-        r[api['params']['key']] = api['params']['val']
-        r['status'] = "SUCCESS BY SAKIB"
-        k_info['used'] += 1
-        return jsonify(r)
-    except: return jsonify({"error": "Main API Error"}), 500
+        api = DATABASE['apis'].get(api_id)
+        key = request.args.get('key')
+        term = request.args.get('term', '')
 
+        if not api:
+            return jsonify({"error": "API Not Found"}), 404
+
+        if not key:
+            return jsonify({"error": "Key Required"}), 401
+
+        k_info = DATABASE['keys'].get(key)
+
+        if not k_info:
+            return jsonify({"error": "Invalid Key"}), 403
+
+        today = datetime.now().date()
+        expiry_date = datetime.strptime(k_info['expiry'], "%Y-%m-%d").date()
+
+        if today > expiry_date:
+            return jsonify({"error": "Key Expired"}), 403
+
+        if k_info['used'] >= k_info['limit']:
+            return jsonify({"error": "Limit Exceeded"}), 403
+
+        response = requests.get(
+            api['url'],
+            params={"term": term},
+            timeout=15
+        )
+
+        try:
+            data = response.json()
+        except:
+            return jsonify({"error": "Main API Invalid JSON"}), 500
+
+        if not isinstance(data, dict):
+            data = {"response": data}
+
+        data[api['params']['key']] = api['params']['val']
+        data['status'] = "SUCCESS BY SAKIB"
+
+        k_info['used'] += 1
+
+        return jsonify(data)
+
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Main API Timeout"}), 504
+
+    except Exception as e:
+        return jsonify({
+            "error": "Gateway Error",
+            "details": str(e)
+        }), 500
+
+
+# ---------------- LOGOUT ----------------
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('admin'))
 
+
+# ---------------- HOME ----------------
 @app.route('/')
 def home():
     return redirect(url_for('admin'))
 
-# Vercel-এর জন্য এক্সপোর্ট
-app = app 
+
+# ---------------- VERCEL EXPORT ----------------
+app = app
