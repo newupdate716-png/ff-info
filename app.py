@@ -6,7 +6,7 @@ from datetime import timedelta, datetime
 app = Flask(__name__)
 
 # সিকিউরিটি কনফিগারেশন
-app.secret_key = os.getenv("SECRET_KEY", "SAKIB_ULTIMATE_PREMIUM_FINAL_ULTRA")
+app.secret_key = os.getenv("SECRET_KEY", "SAKIB_ULTRA_PREMIUM_V4_CORE")
 app.permanent_session_lifetime = timedelta(days=30)
 
 ADMIN_PASS = "sakib123"
@@ -17,186 +17,167 @@ DATABASE = {
     "keys": {}
 }
 
-# প্রিমিয়াম এনিমেটেড UI
+# প্রিমিয়াম এনিমেটেড UI (Glassmorphism + Neon Effect)
 HTML_LAYOUT = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SB SAKIB | PREMIUM MANAGER</title>
+    <title>SB SAKIB | PREMIUM MANAGER V4</title>
     <style>
-        :root{--accent:#00ffcc;--bg:#050508;--card:#0f0f18;--danger:#ff4d4d;--edit:#ffcc00;--success:#2ecc71;--hide:#7f8c8d;}
+        :root{--accent:#00ffcc;--bg:#050508;--card:#0f0f1c;--danger:#ff4d4d;--edit:#ffcc00;--success:#2ecc71;--border:rgba(255,255,255,0.08);}
         
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes glow { 0% { box-shadow: 0 0 5px rgba(0,255,204,0.2); } 50% { box-shadow: 0 0 15px rgba(0,255,204,0.5); } 100% { box-shadow: 0 0 5px rgba(0,255,204,0.2); } }
 
-        body{font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;background:var(--bg);color:#e0e0e0;margin:0;padding:0;overflow-x:hidden;}
-        .nav{background:rgba(22, 22, 34, 0.95);padding:20px;text-align:center;border-bottom:2px solid var(--accent);color:var(--accent);font-size:24px;font-weight:bold;letter-spacing:2px;box-shadow: 0 4px 20px rgba(0,255,204,0.1);backdrop-filter: blur(10px);position: sticky;top: 0;z-index: 1000;}
+        body{font-family:'Segoe UI', Roboto, sans-serif;background:var(--bg);color:#e0e0e0;margin:0;padding:0;overflow-x:hidden;}
         
-        .container{max-width:850px;margin:auto;padding:25px;animation: fadeIn 0.6s ease-out;}
-        .card{background:var(--card);border-radius:20px;padding:30px;margin-bottom:25px;border:1px solid #1f1f2e;box-shadow: 0 10px 30px rgba(0,0,0,0.5);transition: 0.3s;}
-        .card:hover{border-color: var(--accent);box-shadow: 0 10px 40px rgba(0,255,204,0.05);}
+        .nav{background:rgba(15, 15, 28, 0.9);padding:22px;text-align:center;border-bottom:1px solid var(--accent);color:var(--accent);font-size:26px;font-weight:900;letter-spacing:3px;backdrop-filter: blur(15px);position: sticky;top: 0;z-index: 1000;text-shadow: 0 0 10px rgba(0,255,204,0.5);}
         
-        h3{margin-top:0;color:var(--accent);border-bottom:1px solid #222;padding-bottom:12px;display: flex;justify-content: space-between;align-items: center;}
+        .container{max-width:900px;margin:auto;padding:30px;animation: fadeIn 0.8s ease;}
+        .card{background:var(--card);border-radius:24px;padding:30px;margin-bottom:30px;border:1px solid var(--border);box-shadow: 0 15px 35px rgba(0,0,0,0.6);transition: 0.4s;position: relative;overflow: hidden;}
+        .card:hover{border-color: var(--accent);transform: translateY(-5px);}
         
-        input, select{width:100%;padding:14px;margin:12px 0;border-radius:10px;border:1px solid #2a2a3d;background:#000;color:#fff;box-sizing:border-box;outline:none;transition: 0.3s;}
-        input:focus{border-color: var(--accent);box-shadow: 0 0 10px rgba(0,255,204,0.2);}
+        h3{margin-top:0;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:15px;text-transform: uppercase;font-size:18px;letter-spacing:1px;}
         
-        .btn{padding:12px 20px;border:none;border-radius:10px;font-weight:bold;cursor:pointer;transition:0.3s;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;}
-        .btn-primary{background:var(--accent);color:#000;}
+        input, select{width:100%;padding:15px;margin:12px 0;border-radius:12px;border:1px solid var(--border);background:rgba(0,0,0,0.4);color:#fff;box-sizing:border-box;outline:none;transition: 0.3s;font-size:14px;}
+        input:focus{border-color: var(--accent);background:rgba(0,0,0,0.6);}
+        
+        .btn{padding:14px 24px;border:none;border-radius:12px;font-weight:bold;cursor:pointer;transition:0.3s;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;gap:8px;}
+        .btn-primary{background:var(--accent);color:#000;animation: glow 3s infinite;}
         .btn-danger{background:var(--danger);color:#fff;}
         .btn-edit{background:var(--edit);color:#000;}
-        .btn-hide{background:var(--hide);color:#fff;}
-        .btn-back{background:#333;color:#fff;margin-bottom:15px;}
-        .btn:hover{transform: scale(1.02);opacity: 0.9;}
-        .btn:active{transform: scale(0.98);}
+        .btn-back{background:rgba(255,255,255,0.05);color:#fff;margin-bottom:20px;border:1px solid var(--border);}
+        .btn:hover{filter: brightness(1.2);transform: scale(1.03);}
 
-        .item{background:#161625;padding:18px;border-radius:15px;margin-top:15px;border-left:5px solid var(--accent);animation: slideIn 0.4s ease-out;position:relative;transition: 0.3s;}
-        .item:hover{background: #1c1c2e;}
+        .item{background:rgba(255,255,255,0.02);padding:20px;border-radius:18px;margin-top:15px;border:1px solid var(--border);position:relative;transition: 0.3s;}
+        .item:hover{background: rgba(255,255,255,0.05);border-color: var(--accent);}
         
-        .param-row{display:flex;gap:10px;margin-bottom:12px;align-items:center;background:rgba(0,0,0,0.3);padding:12px;border-radius:12px;border:1px solid #222;}
-        .action-group{display: flex;gap: 8px;}
+        .perm-box{background:rgba(0,0,0,0.3);padding:15px;border-radius:15px;margin:10px 0;border:1px solid var(--border);}
+        .perm-item{display: flex;align-items: center;justify-content: space-between;padding:8px 0;border-bottom: 1px solid rgba(255,255,255,0.05);}
+        .perm-item:last-child{border:none;}
         
-        .badge{font-size:11px;padding:4px 10px;border-radius:8px;background:#000;color:var(--accent);border: 1px solid var(--accent);text-transform: uppercase;}
-        code{color:var(--edit);background:#000;padding:8px;border-radius:8px;display:block;margin-top:12px;font-size:12px;border:1px solid #222;word-break: break-all;}
+        .checkbox-container { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;}
+        .checkbox-container input { width: 20px; height: 20px; cursor: pointer; margin: 0;}
         
-        .hidden-row{opacity: 0.5;filter: grayscale(1);}
+        .badge{font-size:10px;padding:5px 12px;border-radius:20px;background:rgba(0,255,204,0.1);color:var(--accent);border: 1px solid var(--accent);font-weight: bold;}
+        code{color:var(--edit);background:#000;padding:12px;border-radius:12px;display:block;margin-top:15px;font-size:12px;border:1px solid var(--border);word-wrap: break-word;}
+        
+        .limit-input{width: 100px !important; padding: 5px !important; margin: 0 !important; text-align: center;}
     </style>
 </head>
 <body>
-    <div class="nav">SB SAKIB PREMIUM V3</div>
+    <div class="nav">SB SAKIB PREMIUM V4</div>
     <div class="container">
 
     {% if page == 'login' %}
         <div class="card" style="max-width:400px;margin:100px auto;">
             <h3>ADMIN LOGIN</h3>
             <form method="POST">
-                <input type="password" name="password" placeholder="Enter Admin Password" required>
-                <button type="submit" class="btn btn-primary" style="width:100%;">ACCESS SYSTEM</button>
+                <input type="password" name="password" placeholder="Enter Password" required>
+                <button type="submit" class="btn btn-primary" style="width:100%;">LOGIN CORE</button>
             </form>
-            {% if error %}<p style="color:var(--danger);text-align:center;margin-top:15px;">Invalid Password!</p>{% endif %}
+            {% if error %}<p style="color:var(--danger);text-align:center;margin-top:15px;">Access Denied!</p>{% endif %}
         </div>
 
     {% elif page == 'dash' %}
         <div class="card">
-            <h3>ADD NEW API</h3>
+            <h3>DEPLOY NEW API SOURCE</h3>
             <form action="/add" method="POST">
-                <input type="text" name="slug" placeholder="API Path (e.g. facebook)" required>
-                <input type="url" name="url" placeholder="Main API URL (https://...)" required>
-                <input type="text" name="param" placeholder="Input Parameter (e.g. url)" required>
-                <button type="submit" class="btn btn-primary" style="width:100%;">DEPLOY API</button>
+                <input type="text" name="slug" placeholder="API Slug (e.g. fb_dl)" required>
+                <input type="url" name="url" placeholder="Original API Endpoint URL" required>
+                <input type="text" name="param" placeholder="Query Parameter (e.g. url, id, link)" required>
+                <button type="submit" class="btn btn-primary" style="width:100%;">DEPLOY NOW</button>
             </form>
         </div>
 
         <div class="card">
-            <h3>GENERATE KEY</h3>
+            <h3>GENERATE MULTI-API KEY</h3>
             <form action="/key-gen" method="POST">
-                <input type="text" name="c_key" placeholder="Custom Key (Optional)">
-                <input type="number" name="limit" placeholder="Usage Limit" required>
+                <input type="text" name="c_key" placeholder="Custom Access Key (Optional)">
                 <input type="date" name="expiry" required>
-                <button type="submit" class="btn btn-primary" style="width:100%;">CREATE KEY</button>
-            </form>
-        </div>
-
-        <h3>ACTIVE APIS</h3>
-        {% for slug, api in data['apis'].items() %}
-        <div class="item">
-            <a href="/settings/{{ slug }}" class="btn btn-edit" style="float:right;">SETTINGS</a>
-            <strong>{{ slug|upper }}</strong> <span class="badge">Active</span>
-            <code>{{ root }}{{ slug }}?key=[KEY]&{{ api.param }}=[VALUE]</code>
-        </div>
-        {% endfor %}
-
-        <h3 style="margin-top:40px;">ACTIVE KEYS</h3>
-        {% for key, info in data['keys'].items() %}
-        <div class="item">
-            <strong>Key: {{ key }}</strong>
-            <div style="font-size:13px;margin-top:8px;color:#aaa;">
-                Usage: {{ info.used }}/{{ info.limit }} | Exp: {{ info.expiry }}
-            </div>
-            <div class="action-btns" style="margin-top:12px; display:flex; gap:10px;">
-                <a href="/edit-key/{{ key }}" class="btn btn-edit" style="padding:5px 15px;">EDIT</a>
-                <form action="/del-key" method="POST" style="margin:0;">
-                    <input type="hidden" name="key_id" value="{{ key }}">
-                    <button type="submit" class="btn btn-danger" style="padding:5px 15px;">DELETE</button>
-                </form>
-            </div>
-        </div>
-        {% endfor %}
-        <br><a href="/logout" style="color:var(--danger);font-weight:bold;text-decoration:none;">Logout Panel</a>
-
-    {% elif page == 'edit_api' %}
-        <a href="/admin" class="btn btn-back">← BACK TO DASHBOARD</a>
-        <div class="card">
-            <h3>
-                EDIT API: {{ slug }}
-                <a href="/reset-api/{{ slug }}" class="btn btn-danger" style="font-size:12px;padding:5px 10px;">RESET TO DEFAULT</a>
-            </h3>
-            <form method="POST">
-                <p>Main Input Parameter:</p>
-                <input type="text" name="param" value="{{ api.param }}" required>
                 
-                <p>Response Mapping & Rules:</p>
-                <div id="param-fields">
-                    {% for orig, rule in api['mapping'].items() %}
-                    <div class="param-row {% if rule.hidden %}hidden-row{% endif %}" id="row-{{ loop.index }}">
-                        <input type="text" name="orig_keys" value="{{ orig }}" placeholder="Original Key" style="flex:1;">
-                        <input type="text" name="new_vals" value="{{ rule.value }}" placeholder="Replacement Text" style="flex:1;">
-                        <input type="hidden" name="hidden_states" value="{{ '1' if rule.hidden else '0' }}" class="h-state">
-                        
-                        <div class="action-group">
-                            <button type="button" class="btn btn-hide" onclick="toggleHide(this)">{{ 'SHOW' if rule.hidden else 'HIDE' }}</button>
-                            <button type="button" class="btn btn-danger" onclick="this.parentElement.parentElement.remove()">×</button>
+                <p style="font-size:13px; color:var(--accent); margin-bottom:10px;">Configure API Access & Limits:</p>
+                <div class="perm-box">
+                    {% if not data['apis'] %}<p style="font-size:12px; color:#666;">No APIs deployed yet.</p>{% endif %}
+                    {% for slug in data['apis'].keys() %}
+                    <div class="perm-item">
+                        <label class="checkbox-container">
+                            <input type="checkbox" name="allowed_apis" value="{{ slug }}" checked>
+                            {{ slug|upper }}
+                        </label>
+                        <div>
+                            <span style="font-size:11px; color:#aaa;">Limit:</span>
+                            <input type="number" name="limit_{{ slug }}" value="100" class="limit-input">
                         </div>
                     </div>
                     {% endfor %}
                 </div>
-                <button type="button" class="btn btn-primary" onclick="addRow()" style="margin-bottom:15px; background:#222; color:var(--accent);">+ ADD NEW MAPPING</button>
-                <button type="submit" class="btn btn-primary" style="width:100%;">SAVE ALL CHANGES</button>
+                <button type="submit" class="btn btn-primary" style="width:100%;">GENERATE MASTER KEY</button>
+            </form>
+        </div>
+
+        <h3>SYSTEM ENDPOINTS</h3>
+        {% for slug, api in data['apis'].items() %}
+        <div class="item">
+            <a href="/settings/{{ slug }}" class="btn btn-edit" style="float:right; padding:5px 12px; font-size:11px;">CONFIG</a>
+            <strong>{{ slug|upper }}</strong> <span class="badge">ACTIVE</span>
+            <code>{{ root }}{{ slug }}?key=[KEY]&{{ api.param }}=[VALUE]</code>
+        </div>
+        {% endfor %}
+
+        <h3 style="margin-top:40px;">MANAGED KEYS</h3>
+        {% for key, info in data['keys'].items() %}
+        <div class="item">
+            <strong>KEY: {{ key }}</strong>
+            <div style="font-size:12px; margin-top:10px;">
+                {% for s, l in info.permissions.items() %}
+                <span style="background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:5px; margin-right:5px; border:1px solid var(--border);">
+                    {{ s|upper }}: {{ info.usage[s] }}/{{ l }}
+                </span>
+                {% endfor %}
+            </div>
+            <p style="font-size:11px; color:#777;">Expires: {{ info.expiry }}</p>
+            <div class="action-btns" style="display:flex; gap:10px;">
+                <form action="/del-key" method="POST" style="margin:0;">
+                    <input type="hidden" name="key_id" value="{{ key }}">
+                    <button type="submit" class="btn btn-danger" style="padding:5px 15px; font-size:11px;">REVOKE</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        <br><a href="/logout" style="color:var(--danger); text-decoration:none; font-size:13px;">→ SHUTDOWN SESSION</a>
+
+    {% elif page == 'edit_api' %}
+        <a href="/admin" class="btn btn-back">← BACK TO DASHBOARD</a>
+        <div class="card">
+            <h3>CONFIGURING: {{ slug|upper }}</h3>
+            <form method="POST">
+                <input type="text" name="param" value="{{ api.param }}" placeholder="Main Parameter" required>
+                <p style="font-size:13px; color:var(--accent);">JSON Key Mapping:</p>
+                <div id="param-fields">
+                    {% for orig, rule in api['mapping'].items() %}
+                    <div class="item" style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                        <input type="text" name="orig_keys" value="{{ orig }}" placeholder="API Key" style="margin:0;">
+                        <input type="text" name="new_vals" value="{{ rule.value }}" placeholder="Custom Text" style="margin:0;">
+                        <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()">×</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-back" onclick="addRow()" style="width:100%;">+ ADD NEW RULE</button>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">SAVE CONFIGURATION</button>
             </form>
         </div>
         <script>
             function addRow(){
                 const div = document.createElement('div');
-                div.className = 'param-row';
-                div.innerHTML = `
-                    <input type="text" name="orig_keys" placeholder="Original Key" style="flex:1;">
-                    <input type="text" name="new_vals" placeholder="Replacement Text" style="flex:1;">
-                    <input type="hidden" name="hidden_states" value="0" class="h-state">
-                    <div class="action-group">
-                        <button type="button" class="btn btn-hide" onclick="toggleHide(this)">HIDE</button>
-                        <button type="button" class="btn btn-danger" onclick="this.parentElement.parentElement.remove()">×</button>
-                    </div>`;
+                div.className = 'item';
+                div.style.cssText = 'display:flex; gap:10px; align-items:center; margin-bottom:10px;';
+                div.innerHTML = `<input type="text" name="orig_keys" placeholder="API Key" style="margin:0;"><input type="text" name="new_vals" placeholder="Custom Text" style="margin:0;"><button type="button" class="btn btn-danger" onclick="this.parentElement.remove()">×</button>`;
                 document.getElementById('param-fields').appendChild(div);
             }
-            function toggleHide(btn){
-                const row = btn.parentElement.parentElement;
-                const hState = row.querySelector('.h-state');
-                if(hState.value === '0'){
-                    hState.value = '1';
-                    row.classList.add('hidden-row');
-                    btn.innerText = 'SHOW';
-                } else {
-                    hState.value = '0';
-                    row.classList.remove('hidden-row');
-                    btn.innerText = 'HIDE';
-                }
-            }
         </script>
-
-    {% elif page == 'edit_key' %}
-        <a href="/admin" class="btn btn-back">← BACK TO DASHBOARD</a>
-        <div class="card">
-            <h3>EDIT KEY: {{ key_id }}</h3>
-            <form method="POST">
-                <p>Usage Limit:</p>
-                <input type="number" name="limit" value="{{ key_info.limit }}">
-                <p>Expiry Date:</p>
-                <input type="date" name="expiry" value="{{ key_info.expiry }}">
-                <button type="submit" class="btn btn-primary" style="width:100%;">UPDATE ACCESS KEY</button>
-            </form>
-        </div>
     {% endif %}
     </div>
 </body>
@@ -230,6 +211,27 @@ def add():
     }
     return redirect('/admin')
 
+@app.route('/key-gen', methods=['POST'])
+def key_gen():
+    if not session.get('logged_in'): return redirect('/admin')
+    key = request.form.get('c_key') or "SAKIB-" + os.urandom(3).hex().upper()
+    
+    allowed_list = request.form.getlist('allowed_apis')
+    permissions = {}
+    usage = {}
+    
+    for slug in allowed_list:
+        limit_val = request.form.get(f'limit_{slug}', '100')
+        permissions[slug] = int(limit_val)
+        usage[slug] = 0
+
+    DATABASE['keys'][key] = {
+        "expiry": request.form.get('expiry'),
+        "permissions": permissions, # {api_slug: limit}
+        "usage": usage # {api_slug: used_count}
+    }
+    return redirect('/admin')
+
 @app.route('/settings/<slug>', methods=['GET', 'POST'])
 def settings(slug):
     if not session.get('logged_in'): return redirect('/admin')
@@ -238,47 +240,9 @@ def settings(slug):
         api['param'] = request.form.get('param')
         keys = request.form.getlist('orig_keys')
         vals = request.form.getlist('new_vals')
-        hiddens = request.form.getlist('hidden_states')
-        
-        new_mapping = {}
-        for k, v, h in zip(keys, vals, hiddens):
-            if k:
-                new_mapping[k] = {"value": v, "hidden": h == '1'}
-        api['mapping'] = new_mapping
+        api['mapping'] = {k: {"value": v, "hidden": False} for k, v in zip(keys, vals) if k}
         return redirect('/admin')
     return render_template_string(HTML_LAYOUT, page='edit_api', api=api, slug=slug)
-
-@app.route('/reset-api/<slug>')
-def reset_api(slug):
-    if not session.get('logged_in'): return redirect('/admin')
-    if slug in DATABASE['apis']:
-        DATABASE['apis'][slug]['mapping'] = {
-            "status": {"value": "SUCCESS BY SAKIB", "hidden": False},
-            "owner": {"value": "SB-SAKIB @sakib01994", "hidden": False}
-        }
-    return redirect(url_for('settings', slug=slug))
-
-@app.route('/key-gen', methods=['POST'])
-def key_gen():
-    if not session.get('logged_in'): return redirect('/admin')
-    key = request.form.get('c_key') or "SAKIB-" + os.urandom(3).hex().upper()
-    DATABASE['keys'][key] = {
-        "limit": int(request.form.get('limit')),
-        "expiry": request.form.get('expiry'),
-        "used": 0,
-        "allowed": list(DATABASE['apis'].keys())
-    }
-    return redirect('/admin')
-
-@app.route('/edit-key/<key_id>', methods=['GET', 'POST'])
-def edit_key(key_id):
-    if not session.get('logged_in'): return redirect('/admin')
-    key_info = DATABASE['keys'].get(key_id)
-    if request.method == 'POST':
-        key_info['limit'] = int(request.form.get('limit'))
-        key_info['expiry'] = request.form.get('expiry')
-        return redirect('/admin')
-    return render_template_string(HTML_LAYOUT, page='edit_key', key_id=key_id, key_info=key_info)
 
 @app.route('/del-key', methods=['POST'])
 def del_key():
@@ -289,38 +253,42 @@ def del_key():
 @app.route('/<slug>')
 def dynamic_api(slug):
     api = DATABASE['apis'].get(slug)
-    if not api: return jsonify({"error": "API NotFound"}), 404
+    if not api: return jsonify({"status": "error", "message": "API Not Found"}), 404
 
     key_code = request.args.get('key')
-    k = DATABASE['keys'].get(key_code)
+    k_data = DATABASE['keys'].get(key_code)
 
-    if not k: return jsonify({"status": "error", "message": "Access Key Required", "contact": "@sakib01994"}), 403
+    if not k_data: return jsonify({"status": "error", "message": "Invalid Access Key", "contact": "@sakib01994"}), 403
     
-    if datetime.now().date() > datetime.strptime(k['expiry'], "%Y-%m-%d").date():
+    # চেক: এই এপিআই-তে এক্সেস আছে কি না
+    if slug not in k_data['permissions']:
+        return jsonify({"status": "error", "message": f"No permission for {slug}", "contact": "@sakib01994"}), 403
+
+    # চেক: মেয়াদ্দ
+    if datetime.now().date() > datetime.strptime(k_data['expiry'], "%Y-%m-%d").date():
         return jsonify({"status": "error", "message": "Key Expired", "contact": "@sakib01994"}), 403
 
-    if k['used'] >= k['limit']:
-        return jsonify({"status": "LIMIT_EXCEEDED", "message": "Your limit is over. Contact owner.", "contact": "@sakib01994"}), 403
+    # চেক: স্পেসিফিক এপিআই লিমিট
+    if k_data['usage'][slug] >= k_data['permissions'][slug]:
+        return jsonify({"status": "LIMIT_EXCEEDED", "message": f"Limit for {slug} is over. Contact owner.", "contact": "@sakib01994"}), 403
 
     term = request.args.get(api['param'])
-    if not term: return jsonify({"error": f"Missing {api['param']}"}), 400
+    if not term: return jsonify({"error": f"Missing param: {api['param']}"}), 400
 
     try:
         r = requests.get(api['url'], params={api['param']: term}, timeout=15)
-        raw_data = r.json()
-        if not isinstance(raw_data, dict): raw_data = {"data": raw_data}
+        res_json = r.json()
+        if not isinstance(res_json, dict): res_json = {"result": res_json}
 
-        # ম্যাপিং প্রসেসিং
+        # ম্যাপিং প্রয়োগ
         for k_orig, rule in api['mapping'].items():
-            if rule['hidden']:
-                if k_orig in raw_data: raw_data.pop(k_orig)
-            else:
-                raw_data[k_orig] = rule['value']
+            res_json[k_orig] = rule['value']
         
-        k['used'] += 1
-        return jsonify(raw_data)
+        # ইউজেস আপডেট (শুধুমাত্র ওই এপিআই এর জন্য)
+        k_data['usage'][slug] += 1
+        return jsonify(res_json)
     except Exception as e:
-        return jsonify({"error": "Origin API Error", "msg": str(e)}), 500
+        return jsonify({"error": "Origin Error", "details": str(e)}), 500
 
 @app.route('/logout')
 def logout():
